@@ -1,2 +1,2 @@
-# fastai-amd-pytorch-practice
+# fastai-and-pytorch-practice
 Code practice based on book "Deep Learning for Coders with Fastai and PyTorch" by Sylvain Gugger and Jeremy Howard along with a few personal projects.
