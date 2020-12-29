@@ -1,61 +1,61 @@
 import torch
 from torchvision.datasets import CIFAR10
 import torchvision.transforms as transforms
-import matplotlib.pyplot as plt
-import numpy as np
 import torch.nn.functional as F
 import torch.nn as nn
 import torch.optim as optim
 import torch.backends.cudnn as cudnn
+from torch.utils.data import DataLoader as DataLoader
 
 torch.backends.cudnn.benchmark = True
-PATH = './models/cifar_lenet.pth'
 device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
 
-transform_train = transforms.Compose(
-    [transforms.ToTensor(),
-     transforms.RandomCrop(32, padding=4),
-     transforms.RandomHorizontalFlip(),
-     transforms.Normalize((0.4914, 0.4822, 0.4465), (0.2023, 0.1994, 0.2010))])
+transform_train = transforms.Compose([
+    transforms.ToTensor(),
+    transforms.RandomCrop(32, padding=4),
+    transforms.RandomHorizontalFlip(),
+    transforms.Normalize((0.4914, 0.4822, 0.4465), (0.2023, 0.1994, 0.2010))])
 
-transform_test = transforms.Compose(
-    [transforms.ToTensor(),
-     transforms.Normalize((0.4914, 0.4822, 0.4465), (0.2023, 0.1994, 0.2010))])
+transform_test = transforms.Compose([
+    transforms.ToTensor(),
+    transforms.Normalize((0.4914, 0.4822, 0.4465), (0.2023, 0.1994, 0.2010))])
 
-train_set = CIFAR10(root='./data', train=True,
-                    download=True, transform=transform_train)
+train_set = CIFAR10(root='./data',
+                    train=True,
+                    download=True,
+                    transform=transform_train)
 
-training_loader = torch.utils.data.DataLoader(train_set, batch_size=128,
-                                              shuffle=True, num_workers=2)
+training_loader = DataLoader(dataset=train_set,
+                             batch_size=128,
+                             shuffle=True,
+                             num_workers=2)
 
-validation_set = CIFAR10(root='./data', train=False,
-                         download=True, transform=transform_train)
+validation_set = CIFAR10(root='./data',
+                         train=False,
+                         download=True,
+                         transform=transform_train)
 
-validation_loader = torch.utils.data.DataLoader(dataset=validation_set,
-                                                batch_size=100, shuffle=False)
+validation_loader = DataLoader(dataset=validation_set,
+                               batch_size=100,
+                               shuffle=False)
 
-test_set = CIFAR10(root='./data', train=False,
-                   download=True, transform=transform_test)
-test_loader = torch.utils.data.DataLoader(test_set, batch_size=100,
-                                          shuffle=False, num_workers=2)
-classes = ('plane', 'car', 'bird', 'cat',
-           'deer', 'dog', 'frog', 'horse', 'ship', 'truck')
+test_set = CIFAR10(root='./data',
+                   train=False,
+                   download=True,
+                   transform=transform_test)
 
+test_loader = DataLoader(dataset=test_set,
+                         batch_size=100,
+                         shuffle=False,
+                         num_workers=2)
 
-def imshow(img):
-    img = img / 2 + 0.5
-    np_img = img.numpy()
-    plt.imshow(np.transpose(np_img, (1, 2, 0)))
-    plt.show()
-
-
-# imshow(torchvision.utils.make_grid(images))
-# print(' '.join('%5s' % classes[labels[j]] for j in range(4)))
+classes = ('plane', 'car', 'bird', 'cat', 'deer',
+           'dog', 'frog', 'horse', 'ship', 'truck')
 
 
-class Net(nn.Module):
+class LeNet(nn.Module):
     def __init__(self):
-        super(Net, self).__init__()
+        super(LeNet, self).__init__()
         self.conv1 = nn.Conv2d(3, 6, 5)
         self.conv2 = nn.Conv2d(6, 16, 5)
         self.fc1 = nn.Linear(16 * 5 * 5, 120)
@@ -74,15 +74,11 @@ class Net(nn.Module):
         return out
 
 
-net = Net().to(device)
-
-criterion = nn.CrossEntropyLoss()
-optimizer = optim.AdamW(net.parameters(), lr=0.001,
-                        weight_decay=5e-4)
-scheduler = torch.optim.lr_scheduler.CosineAnnealingLR(optimizer, T_max=200)
-
-
-def train(epochs):
+def train(epochs,lr,weight_decay):
+    model = LeNet().to(device)
+    criterion = nn.CrossEntropyLoss()
+    optimizer = optim.AdamW(model.parameters(), lr=lr, weight_decay=weight_decay)
+    scheduler = torch.optim.lr_scheduler.CosineAnnealingLR(optimizer, T_max=200)
     loss_history = []
     correct_history = []
     val_loss_history = []
@@ -95,20 +91,20 @@ def train(epochs):
         for input, labels in training_loader:
             input = input.to(device)
             labels = labels.to(device)
-            outputs = net(input)
+            outputs = model(input)
             loss1 = criterion(outputs, labels)
             optimizer.zero_grad()
             loss1.backward()
             optimizer.step()
-            _, preds = torch.max(outputs, 1)
+            _, predictions = torch.max(outputs, 1)
             loss += loss1.item()
-            correct += torch.sum(preds == labels.data)
+            correct += torch.sum(predictions == labels.data)
         else:
             with torch.no_grad():
                 for val_input, val_labels in validation_loader:
                     val_input = val_input.to(device)
                     val_labels = val_labels.to(device)
-                    val_outputs = net(val_input)
+                    val_outputs = model(val_input)
                     val_loss1 = criterion(val_outputs, val_labels)
                     _, val_preds = torch.max(val_outputs, 1)
                     val_loss += val_loss1.item()
@@ -122,23 +118,25 @@ def train(epochs):
             val_loss_history.append(val_epoch_loss)
             val_correct_history.append(val_epoch_acc)
             print('epoch :', (e + 1))
-            print('training loss: {:.4f}, acc {:.4f} '.format(epoch_loss, epoch_acc.item()))
-            print('validation loss: {:.4f}, validation acc {:.4f} '.format(val_epoch_loss, val_epoch_acc.item()))
+            print('training loss: {:.4f}, accuracy {:.4f} '.format(epoch_loss, epoch_acc.item()))
+            print('validation loss: {:.4f}, validation accuracy {:.4f} '.format(val_epoch_loss, val_epoch_acc.item()))
 
     print('Finished Training')
-    torch.save(net.state_dict(), PATH)
+    print('Saving Model...')
+    torch.save(model.state_dict(), MODEL_PATH)
 
 
 def test():
     correct = 0
     test_loss = 0
     total = 0
-    net = Net()
-    net.load_state_dict(torch.load(PATH))
+    model = LeNet()
+    criterion = nn.CrossEntropyLoss()
+    model.load_state_dict(torch.load(MODEL_PATH))
     with torch.no_grad():
         for batch_idx, data in enumerate(test_loader):
             images, labels = data[0], data[1]
-            outputs = net(images)
+            outputs = model(images)
             loss = criterion(outputs, labels)
             test_loss += loss.item()
             _, predicted = torch.max(outputs.data, 1)
@@ -146,8 +144,16 @@ def test():
             correct += torch.sum(predicted == labels)
             epoch_loss = loss / len(test_loader)
             epoch_acc = correct.float() / len(test_loader)
-        print('testing loss: {:.4f}, test_acc {:.4f} '.format(epoch_loss, epoch_acc.item()))
+        print('testing loss: {:.4f}, test accuracy {:.4f} '.format(epoch_loss, epoch_acc.item()))
 
 
-train(100)
-test()
+if __name__ == '__main__':
+    MODEL_PATH = './models/cifar_lenet.pth'
+    EPOCHS = 1
+    LEARNING_RATE = 1e-3
+    WEIGHT_DECAY = 5e-4
+
+    print("============== Training ==============")
+    train(epochs=EPOCHS, lr=LEARNING_RATE, weight_decay=WEIGHT_DECAY)
+    print("============== Testing ==============")
+    test()

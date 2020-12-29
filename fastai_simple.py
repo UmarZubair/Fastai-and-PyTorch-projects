@@ -20,5 +20,6 @@ dis = ImageDataLoaders.from_name_func(
     bs=32,
     item_tfms=Resize(224))
 
-learn = cnn_learner(dis, resnet34, metrics=error_rate)
-learn.fine_tune(1)
+if __name__ == '__main__':
+    learn = cnn_learner(dis, resnet34, metrics=error_rate)
+    learn.fine_tune(1)
