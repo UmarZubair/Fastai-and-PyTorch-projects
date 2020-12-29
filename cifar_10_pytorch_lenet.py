@@ -149,5 +149,5 @@ def test():
         print('testing loss: {:.4f}, test_acc {:.4f} '.format(epoch_loss, epoch_acc.item()))
 
 
-#train(100)
+train(100)
 test()
